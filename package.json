@@ -1,0 +1,50 @@
+{
+  "name": "digital-ekran-player",
+  "version": "0.9.7",
+  "description": "Profesyonel Digital Signage ve Icerik Yonetim Sistemi",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "author": "Mehmet S. YILMAZ",
+  "license": "ISC",
+  "dependencies": {
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.digital.ekran",
+    "productName": "Digital Ekran",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+	"nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "runAfterFinish": true,
+      "multiLanguageInstaller": true,
+      "unicode": true,
+      "warningsAsErrors": false,
+      "installerLanguages": [
+        "tr_TR",
+        "en_US",
+        "de_DE",
+        "fr_FR",
+        "ar_SA"
+      ]
+    },
+    "files": [
+      "**/*",
+      "!dist/*"
+    ]
+  }
+}
