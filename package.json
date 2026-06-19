@@ -1,6 +1,6 @@
 {
   "name": "digital-ekran-player",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "description": "Profesyonel Digital Signage ve Icerik Yonetim Sistemi",
   "main": "main.js",
   "scripts": {

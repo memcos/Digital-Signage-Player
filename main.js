@@ -272,7 +272,7 @@ async function openCropOverlay() {
     const primaryDisplay = displays[0];
 
     try {
-        const sources = await desktopCapturer.getSources({ 
+        let sources = await desktopCapturer.getSources({ 
             types: ['screen'], 
             thumbnailSize: { 
                 width: primaryDisplay.size.width * primaryDisplay.scaleFactor, 
@@ -280,13 +280,42 @@ async function openCropOverlay() {
             }
         });
 
-        // Genellikle ilk ekran ana ekrandır
-        const primarySource = sources[0];
+        let primarySource = sources[0];
+
+        // Eğer görüntü çok büyük gelip Chromium tarafından reddedildiyse (boş döndüyse)
+        // Güvenli boyutta (scaleFactor olmadan) tekrar dene
+        if (!primarySource || primarySource.thumbnail.isEmpty()) {
+            console.log("Ölçekli görüntü alınamadı, standart boyut deneniyor...");
+            sources = await desktopCapturer.getSources({ 
+                types: ['screen'], 
+                thumbnailSize: { 
+                    width: primaryDisplay.size.width, 
+                    height: primaryDisplay.size.height 
+                }
+            });
+            primarySource = sources[0];
+        }
+
         if (primarySource) {
             fullScreenImageData = primarySource.thumbnail.toDataURL();
         }
     } catch (e) {
-        console.error("Ekran görüntüsü alınamadı:", e);
+        console.error("Ekran görüntüsü alınamadı (try-catch), güvenli mod deneniyor:", e);
+        try {
+            const fallbackSources = await desktopCapturer.getSources({ 
+                types: ['screen'], 
+                thumbnailSize: { 
+                    width: primaryDisplay.size.width, 
+                    height: primaryDisplay.size.height 
+                }
+            });
+            if (fallbackSources[0]) {
+                fullScreenImageData = fallbackSources[0].thumbnail.toDataURL();
+            }
+        } catch (err) {
+            console.error("Güvenli mod da başarısız:", err);
+            fullScreenImageData = null;
+        }
     }
 
     cropOverlayWindow = new BrowserWindow({
