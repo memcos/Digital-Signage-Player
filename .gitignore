@@ -1,0 +1,31 @@
+node_modules/
+dist/
+out/
+build/
+
+# Log dosyaları
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Çevre değişkenleri (varsa gizli kalması gerekenler)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# İşletim sistemine özgü dosyalar
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editör klasörleri
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

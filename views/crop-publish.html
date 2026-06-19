@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Kırpılmış Ekran Yayın</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        img {
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <div id="statusText" style="color: white; font-family: sans-serif;">Görüntü Yükleniyor...</div>
+    <img id="croppedImage" src="" style="display: none;" />
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        async function loadImage() {
+            try {
+                const imageDataUrl = await ipcRenderer.invoke('get-cropped-image');
+                if (imageDataUrl) {
+                    const img = document.getElementById('croppedImage');
+                    img.onload = () => {
+                        document.getElementById('statusText').style.display = 'none';
+                        img.style.display = 'block';
+                    };
+                    img.onerror = () => {
+                        document.getElementById('statusText').innerText = "Hata: Görüntü yüklenirken sorun oluştu!";
+                    };
+                    img.src = imageDataUrl;
+                } else {
+                    document.getElementById('statusText').innerText = "Hata: Görüntü bulunamadı!";
+                }
+            } catch (err) {
+                document.getElementById('statusText').innerText = "Hata: " + err.message;
+            }
+        }
+
+        loadImage();
+    </script>
+</body>
+</html>

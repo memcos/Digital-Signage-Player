@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        body { margin: 0; padding: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #media-container { width: 100vw; height: 100vh; position: relative; }
+        .media-item { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: #000; opacity: 0; transition: opacity 1s ease-in-out; }
+        .media-item.active { opacity: 1; z-index: 10; }
+        #info-bar { position: absolute; bottom: 0; left: 0; width: 100%; height: 70px; color: white; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 -5px 20px rgba(0,0,0,0.5); z-index: 999; overflow: hidden; }
+        .brand-area { background: rgba(0,0,0,0.2); height: 100%; padding: 0 30px; display: flex; align-items: center; font-size: 1.8rem; font-weight: 800; white-space: nowrap; z-index: 20; }
+        .marquee-container { flex-grow: 1; overflow: hidden; position: relative; height: 100%; display: flex; align-items: center; }
+        .marquee-content { white-space: nowrap; font-size: 1.4rem; font-weight: 500; padding-left: 100%; animation: scroll-left 20s linear infinite; }
+        @keyframes scroll-left { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+        .time-area { background: rgba(0,0,0,0.2); height: 100%; padding: 0 30px; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; min-width: 180px; z-index: 20; }
+        .clock { font-size: 2rem; font-weight: bold; line-height: 1; }
+        .date { font-size: 0.9rem; opacity: 0.9; margin-top: 3px; }
+        body.portrait #info-bar { height: 120px; flex-direction: column; justify-content: center; padding: 10px 0; }
+        body.portrait .brand-area { background: transparent; height: auto; padding: 5px; font-size: 2.5rem; justify-content: center; width: 100%; }
+        body.portrait .marquee-container { width: 100%; height: auto; margin: 5px 0; }
+        body.portrait .marquee-content { font-size: 1.8rem; }
+        body.portrait .time-area { background: transparent; height: auto; width: 100%; align-items: center; flex-direction: row; gap: 20px; padding: 5px; }
+        body.portrait .clock { font-size: 2.5rem; }
+        body.portrait .date { font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div id="media-container"></div>
+    <div id="info-bar"><div class="brand-area" id="brandName"></div><div class="marquee-container"><div class="marquee-content" id="marqueeText"></div></div><div class="time-area"><div class="clock" id="clock"></div><div class="date" id="date"></div></div></div>
+    <script>
+        const Store = require('electron-store'); const fs = require('fs'); const path = require('path');
+        const store = new Store(); const config = store.get('config'); const container = document.getElementById('media-container');
+
+        function hexToRgba(hex, opacity) { let c; if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){ c= hex.substring(1).split(''); if(c.length== 3){ c= [c[0], c[0], c[1], c[1], c[2], c[2]]; } c= '0x'+c.join(''); return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+ (opacity/100) +')'; } return hex; }
+
+        function applySettings() {
+            if (config.orientation === 'portrait') document.body.classList.add('portrait'); else document.body.classList.remove('portrait');
+            const bar = document.getElementById('info-bar');
+            if (!config.showInfoBar) { bar.style.display = 'none'; return; }
+            bar.style.display = 'flex';
+            const opacity = config.barOpacity || 100;
+            const bgStart = hexToRgba(config.barColor || '#198754', opacity); const bgEnd = hexToRgba('#000000', opacity);
+            bar.style.background = `linear-gradient(to right, ${bgStart}, ${bgEnd})`;
+            document.getElementById('brandName').innerText = config.CompanyName || 'DIGITAL EKRAN';
+            let fullText = ""; if(config.messageList && config.messageList.length > 0) { fullText = config.messageList.filter(m => m.active).map(m => m.text).join("  *** "); } else if (config.scrollingText) { fullText = config.scrollingText; }
+            const marquee = document.getElementById('marqueeText'); marquee.innerText = fullText ? (fullText + "  *** " + fullText + "  *** " + fullText) : '';
+            const speedVal = config.scrollSpeed || 20; const duration = 500 / speedVal; marquee.style.animationDuration = duration + 's';
+        }
+
+        let playlist = [], currentIndex = 0;
+        function generatePlaylist() {
+            playlist = [];
+            if (config.signageFolder) { try { const files = fs.readdirSync(config.signageFolder); files.filter(f => /\.(mp4|jpg|jpeg|png|webp|webm)$/i.test(f)).forEach(f => { playlist.push({ type: 'file', path: path.join(config.signageFolder, f), ext: path.extname(f).toLowerCase(), duration: config.durationImage || 15, active: true, isFolderItem: true }); }); } catch (e) { console.error(e); } }
+            if (config.manualList && Array.isArray(config.manualList)) { config.manualList.forEach(item => { let ext = ''; if(item.type === 'file') ext = path.extname(item.path).toLowerCase(); playlist.push({ ...item, ext: ext }); }); }
+            if (playlist.length === 0) container.innerHTML = '<div style="color:white;display:flex;justify-content:center;align-items:center;height:100vh;"><h1>İçerik Yok.</h1></div>'; else playNext();
+        }
+
+        function checkSchedule(item) { if (item.isFolderItem) return true; if (!item.active) return false; if (!item.schedule) return true; const now = new Date(); const s = item.schedule; if (s.useDate && s.startDate && s.endDate) { if (now < new Date(s.startDate+"T00:00:00") || now > new Date(s.endDate+"T23:59:59")) return false; } if (s.days && !s.days.includes(now.getDay())) return false; if (s.useTime && s.startTime && s.endTime) { const nowM = now.getHours()*60+now.getMinutes(); const [sH,sM]=s.startTime.split(':').map(Number); const [eH,eM]=s.endTime.split(':').map(Number); if(nowM < sH*60+sM || nowM > eH*60+eM) return false; } return true; }
+
+        function playNext() {
+            if (playlist.length === 0) return;
+            let attempts = 0; let item;
+            do { currentIndex = currentIndex % playlist.length; item = playlist[currentIndex]; if (checkSchedule(item)) break; currentIndex++; attempts++; } while (attempts < playlist.length);
+            if (attempts >= playlist.length) { container.innerHTML = ''; setTimeout(playNext, 5000); return; }
+
+            const oldItem = container.querySelector('.active'); let element; let duration = (item.duration || 15) * 1000;
+            const handleError = () => { element.remove(); advanceSlide(); };
+
+            if (item.type === 'file') {
+                if (['.mp4', '.webm'].includes(item.ext)) {
+                    element = document.createElement('video'); element.src = item.path; element.autoplay = true; 
+                    
+                    // --- SES AYARLARI UYGULAMA (YENİ) ---
+                    element.muted = config.audioMuted; // Mute ayarı
+                    element.volume = 0; // Yumuşak geçiş için 0 ile başla
+
+                    // Cihaz Seçimi
+                    if (config.audioDeviceId && config.audioDeviceId !== 'default' && typeof element.setSinkId === 'function') {
+                        element.setSinkId(config.audioDeviceId).catch(e => console.log("Ses cihazı hatası:", e));
+                    }
+
+                    element.classList.add('media-item'); 
+                    element.onended = () => advanceSlide(); 
+                    element.onerror = handleError;
+                    
+                    // Yumuşak Ses Açılışı (Fade In)
+                    if(!config.audioMuted) {
+                        let targetVol = (config.audioVolume || 80) / 100; // 0.0 - 1.0 arası
+                        let fadeInterval = setInterval(() => {
+                            if(element.volume < targetVol) {
+                                element.volume = Math.min(targetVol, element.volume + 0.05);
+                            } else {
+                                clearInterval(fadeInterval);
+                            }
+                        }, 100);
+                    }
+
+                } else {
+                    element = document.createElement('img'); element.src = item.path; element.classList.add('media-item'); element.onerror = handleError; setTimeout(advanceSlide, duration);
+                }
+            } else if (item.type === 'web') {
+                element = document.createElement('iframe'); element.src = item.path; element.style.cssText = "width:100%;height:100%;border:none;"; element.classList.add('media-item'); setTimeout(advanceSlide, duration);
+            }
+            container.appendChild(element);
+            requestAnimationFrame(() => { element.classList.add('active'); if(oldItem) { oldItem.classList.remove('active'); setTimeout(() => oldItem.remove(), 1500); } });
+        }
+        function advanceSlide() { currentIndex++; playNext(); }
+        function updateTime() { const now = new Date(); document.getElementById('clock').innerText = now.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}); document.getElementById('date').innerText = now.toLocaleDateString('tr-TR', {day:'numeric', month:'long', weekday:'long'}); }
+        applySettings(); generatePlaylist(); setInterval(updateTime, 1000); updateTime();
+    </script>
+</body>
+</html>

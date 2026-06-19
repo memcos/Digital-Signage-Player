@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>IBAN ile Ödeme Al</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: transparent;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e2e8f0;
+            overflow: hidden;
+            padding: 10px; /* Drop shadow/border için pay */
+        }
+
+        .window-frame {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .title-bar {
+            height: 40px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            -webkit-app-region: drag; /* Pencereyi taşımak için */
+            z-index: 100;
+        }
+
+        .title-bar-text {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.7);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .title-bar-close {
+            -webkit-app-region: no-drag; /* Tıklanabilmesi için */
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.5);
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .title-bar-close:hover {
+            background: rgba(239, 68, 68, 0.8);
+            color: white;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 480px;
+            margin: auto;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4); }
+            50% { box-shadow: 0 8px 32px rgba(102, 126, 234, 0.6); }
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #e2e8f0, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 0.82rem;
+            color: rgba(255,255,255,0.5);
+            margin-top: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 6px;
+        }
+
+        .form-label .hint {
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.35);
+        }
+
+        .form-select, .form-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            color: #e2e8f0;
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-select:focus, .form-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        .form-select option {
+            background: #1e1b4b;
+            color: #e2e8f0;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255,255,255,0.25);
+        }
+
+        .form-input.amount-input {
+            font-size: 1.6rem;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 2px;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+        }
+
+        .form-input.amount-input:focus {
+            border-style: solid;
+            border-color: #667eea;
+        }
+
+        .iban-info-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 10px;
+            margin-top: 6px;
+            font-size: 0.78rem;
+        }
+
+        .iban-info-badge i {
+            color: #667eea;
+        }
+
+        .iban-info-badge .iban-text {
+            color: rgba(255,255,255,0.7);
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.35);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255,255,255,0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35);
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(239, 68, 68, 0.5);
+        }
+
+        .no-iban-warning {
+            text-align: center;
+            padding: 24px 20px;
+        }
+
+        .no-iban-warning i {
+            font-size: 3rem;
+            color: rgba(255,255,255,0.15);
+            margin-bottom: 16px;
+        }
+
+        .no-iban-warning p {
+            color: rgba(255,255,255,0.4);
+            font-size: 0.9rem;
+        }
+
+        /* Single IBAN display (no dropdown needed) */
+        .single-iban-display {
+            padding: 12px 14px;
+            background: rgba(102, 126, 234, 0.08);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .single-iban-display .bank-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .single-iban-display .iban-details {
+            flex: 1;
+        }
+
+        .single-iban-display .iban-bank-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .single-iban-display .iban-holder {
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.5);
+            margin-top: 2px;
+        }
+
+        /* QR Active state */
+        .qr-active-state {
+            text-align: center;
+            padding: 16px 0;
+        }
+
+        .qr-active-state .qr-active-icon {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(16, 185, 129, 0.1));
+            border: 2px solid rgba(34, 197, 94, 0.3);
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #22c55e;
+            margin-bottom: 16px;
+            animation: pulse-green 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.2); }
+            50% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
+        }
+
+        .qr-active-state h2 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 6px;
+        }
+
+        .qr-active-state p {
+            font-size: 0.82rem;
+            color: rgba(255,255,255,0.4);
+            margin-bottom: 20px;
+        }
+
+        .qr-active-info {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .qr-active-info .info-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.82rem;
+        }
+
+        .qr-active-info .info-line .label {
+            color: rgba(255,255,255,0.4);
+        }
+
+        .qr-active-info .info-line .value {
+            color: #e2e8f0;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="window-frame">
+        <div class="title-bar">
+            <div class="title-bar-text">
+                <i class="fa fa-qrcode"></i> IBAN ile Ödeme
+            </div>
+            <button class="title-bar-close" onclick="closeWindow()">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+
+        <div class="content-area">
+            <div class="main-container">
+                <div class="glass-card">
+                    <div class="header">
+                        <div class="header-icon">
+                            <i class="fa fa-qrcode"></i>
+                        </div>
+                        <h1>IBAN ile Ödeme Al</h1>
+                        <p>QR kod ile hızlı ödeme alın</p>
+                    </div>
+
+                    <div id="formContent">
+                        <!-- Will be populated by JS -->
+                    </div>
+
+                    <div id="noIbanContent" style="display:none;">
+                        <div class="no-iban-warning">
+                            <i class="fa fa-credit-card"></i>
+                            <p>Henüz IBAN eklenmemiş.<br>Ayarlardan IBAN ekleyebilirsiniz.</p>
+                        </div>
+                    </div>
+
+                    <div id="qrActiveContent" style="display:none;">
+                        <!-- Shown when QR is displayed on 2nd monitor -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        let ibanList = [];
+        let selectedIban = null;
+        let currentQrData = null;
+
+        // Receive IBAN list from main process
+        ipcRenderer.on('iban-list-data', (event, data) => {
+            ibanList = data.ibanList || [];
+            renderForm();
+        });
+
+        // Request IBAN list
+        ipcRenderer.send('get-iban-list');
+
+        function adjustWindowSize() {
+            setTimeout(() => {
+                const titleBar = document.querySelector('.title-bar');
+                const mainContainer = document.querySelector('.main-container');
+                if (titleBar && mainContainer) {
+                    const totalHeight = titleBar.offsetHeight + mainContainer.offsetHeight + 40;
+                    ipcRenderer.send('resize-iban-payment', { width: 560, height: totalHeight });
+                }
+            }, 50);
+        }
+
+        function renderForm() {
+            const formContent = document.getElementById('formContent');
+            const noIbanContent = document.getElementById('noIbanContent');
+            const qrActiveContent = document.getElementById('qrActiveContent');
+
+            if (ibanList.length === 0) {
+                formContent.style.display = 'none';
+                noIbanContent.style.display = 'block';
+                qrActiveContent.style.display = 'none';
+                return;
+            }
+
+            formContent.style.display = 'block';
+            noIbanContent.style.display = 'none';
+            qrActiveContent.style.display = 'none';
+
+            selectedIban = ibanList.find(i => i.isDefault) || ibanList[0];
+
+            let ibanSelectorHTML = '';
+            if (ibanList.length === 1) {
+                const iban = ibanList[0];
+                ibanSelectorHTML = `
+                    <div class="form-group">
+                        <label class="form-label">Hesap Bilgisi</label>
+                        <div class="single-iban-display">
+                            <div class="bank-icon"><i class="fa fa-university"></i></div>
+                            <div class="iban-details">
+                                <div class="iban-bank-name">${iban.bankName}</div>
+                                <div class="iban-holder">${iban.holderName}</div>
+                            </div>
+                        </div>
+                        <div class="iban-info-badge">
+                            <i class="fa fa-hashtag"></i>
+                            <span class="iban-text">${formatIBAN(iban.iban)}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                let options = ibanList.map((iban, idx) =>
+                    `<option value="${idx}" ${iban.isDefault ? 'selected' : ''}>${iban.bankName} - ${iban.holderName}</option>`
+                ).join('');
+
+                ibanSelectorHTML = `
+                    <div class="form-group">
+                        <label class="form-label">IBAN Seçin</label>
+                        <select class="form-select" id="ibanSelect" onchange="onIbanChange()">
+                            ${options}
+                        </select>
+                        <div class="iban-info-badge" id="ibanInfoBadge">
+                            <i class="fa fa-hashtag"></i>
+                            <span class="iban-text" id="selectedIbanText">${formatIBAN(selectedIban.iban)}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            formContent.innerHTML = `
+                ${ibanSelectorHTML}
+                <div class="form-group">
+                    <label class="form-label">Ödeme Tutarı (₺) <span class="hint">— boş bırakılabilir</span></label>
+                    <input type="text" class="form-input amount-input" id="paymentAmount" 
+                           placeholder="0.00" inputmode="decimal"
+                           oninput="formatAmount(this)">
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="closeWindow()">
+                        <i class="fa fa-times"></i> İptal
+                    </button>
+                    <button class="btn btn-primary" onclick="generateQR()">
+                        <i class="fa fa-qrcode"></i> QR Oluştur
+                    </button>
+                </div>
+            `;
+
+            // Focus amount field after render
+            setTimeout(() => {
+                const amountField = document.getElementById('paymentAmount');
+                if (amountField) amountField.focus();
+            }, 200);
+
+            adjustWindowSize();
+        }
+
+        function onIbanChange() {
+            const select = document.getElementById('ibanSelect');
+            if (select) {
+                selectedIban = ibanList[parseInt(select.value)];
+                const badge = document.getElementById('selectedIbanText');
+                if (badge) badge.textContent = formatIBAN(selectedIban.iban);
+            }
+        }
+
+        function formatIBAN(iban) {
+            const clean = iban.replace(/\s/g, '');
+            return clean.replace(/(.{4})/g, '$1 ').trim();
+        }
+
+        function formatAmount(input) {
+            let val = input.value.replace(/[^0-9.,]/g, '');
+            val = val.replace(',', '.');
+            const parts = val.split('.');
+            if (parts.length > 2) {
+                val = parts[0] + '.' + parts.slice(1).join('');
+            }
+            if (parts.length === 2 && parts[1].length > 2) {
+                val = parts[0] + '.' + parts[1].substring(0, 2);
+            }
+            input.value = val;
+        }
+
+        function generateQR() {
+            if (!selectedIban) return;
+
+            const amountEl = document.getElementById('paymentAmount');
+            const amount = amountEl ? amountEl.value.trim() : '';
+
+            currentQrData = {
+                iban: selectedIban.iban,
+                holderName: selectedIban.holderName,
+                bankName: selectedIban.bankName,
+                amount: amount
+            };
+
+            ipcRenderer.send('generate-iban-qr', currentQrData);
+
+            // Switch to QR active state
+            showQrActiveState();
+        }
+
+        function showQrActiveState() {
+            const formContent = document.getElementById('formContent');
+            const qrActiveContent = document.getElementById('qrActiveContent');
+
+            formContent.style.display = 'none';
+            qrActiveContent.style.display = 'block';
+
+            let amountDisplay = '';
+            if (currentQrData.amount && parseFloat(currentQrData.amount) > 0) {
+                const formatted = parseFloat(currentQrData.amount).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                amountDisplay = `
+                    <div class="info-line">
+                        <span class="label">Tutar</span>
+                        <span class="value" style="color: #a78bfa; font-size: 1.1rem;">${formatted} ₺</span>
+                    </div>
+                `;
+            }
+
+            qrActiveContent.innerHTML = `
+                <div class="qr-active-state">
+                    <div class="qr-active-icon">
+                        <i class="fa fa-qrcode"></i>
+                    </div>
+                    <h2>QR Kod Ekranda Gösteriliyor</h2>
+                    <p>Müşteri ödemeyi tamamladığında QR kodunu kapatın</p>
+                    
+                    <div class="qr-active-info">
+                        <div class="info-line">
+                            <span class="label">Banka</span>
+                            <span class="value">${currentQrData.bankName}</span>
+                        </div>
+                        <div class="info-line">
+                            <span class="label">Hesap Sahibi</span>
+                            <span class="value">${currentQrData.holderName}</span>
+                        </div>
+                        ${amountDisplay}
+                    </div>
+
+                    <div class="btn-row">
+                        <button class="btn btn-danger" onclick="closeQRScreen()" style="flex: 2;">
+                            <i class="fa fa-times-circle"></i> QR Kodu Kapat
+                        </button>
+                        <button class="btn btn-secondary" onclick="backToForm()">
+                            <i class="fa fa-arrow-left"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            adjustWindowSize();
+        }
+
+        function closeQRScreen() {
+            // Close QR on second monitor
+            ipcRenderer.send('close-iban-qr');
+            // Close this form too
+            closeWindow();
+        }
+
+        function backToForm() {
+            // Close QR on second monitor and go back to form
+            ipcRenderer.send('close-iban-qr');
+            renderForm();
+        }
+
+        function closeWindow() {
+            ipcRenderer.send('close-iban-payment');
+        }
+
+        // ESC to close
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeWindow();
+        });
+    </script>
+</body>
+</html>

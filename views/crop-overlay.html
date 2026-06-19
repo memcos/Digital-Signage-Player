@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Kırpma Aracı</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.4); /* Yarı saydam siyah */
+            cursor: crosshair;
+        }
+
+        #bgCanvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 1;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 2;
+        }
+
+        #controls {
+            position: absolute;
+            z-index: 10;
+            display: none;
+            background: rgba(15, 12, 41, 0.9);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 8px;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn {
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: white;
+            transition: all 0.2s;
+        }
+
+        .btn-publish { background: #22c55e; }
+        .btn-publish:hover { background: #16a34a; }
+        
+        .btn-edit { background: #3b82f6; }
+        .btn-edit:hover { background: #2563eb; }
+        
+        .btn-cancel { background: #ef4444; }
+        .btn-cancel:hover { background: #dc2626; }
+
+        .hint {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            z-index: 5;
+            pointer-events: none;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="hint" id="hintBox"><i class="fa fa-crop-simple"></i> Yayınlamak istediğiniz alanı fare ile çizin (İptal için ESC)</div>
+    
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="overlayCanvas"></canvas>
+
+    <div id="controls">
+        <button class="btn btn-cancel" onclick="cancelCrop()"><i class="fa fa-times"></i> İptal</button>
+        <button class="btn btn-edit" onclick="resetCrop()"><i class="fa fa-redo"></i> Yeniden</button>
+        <button class="btn btn-publish" onclick="publishCrop()"><i class="fa fa-tv"></i> Yayınla</button>
+    </div>
+
+    <script>
+        const { ipcRenderer, desktopCapturer } = require('electron');
+        
+        const bgCanvas = document.getElementById('bgCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const ctx = overlayCanvas.getContext('2d');
+        const controls = document.getElementById('controls');
+        const hintBox = document.getElementById('hintBox');
+
+        let isDrawing = false;
+        let startX, startY;
+        let currentRect = null;
+        let hasSelected = false;
+        let fullScreenshotData = null;
+
+        // Boyutları ayarla
+        function resize() {
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+            overlayCanvas.width = window.innerWidth;
+            overlayCanvas.height = window.innerHeight;
+            drawOverlay();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Ekran görüntüsünü al
+        async function captureScreen() {
+            try {
+                const imageDataUrl = await ipcRenderer.invoke('get-fullscreen-image');
+                if (imageDataUrl) {
+                    const img = new Image();
+                    img.onload = () => {
+                        bgCtx.drawImage(img, 0, 0, bgCanvas.width, bgCanvas.height);
+                    };
+                    img.src = imageDataUrl;
+                } else {
+                    alert("Ekran görüntüsü alınamadı!");
+                    cancelCrop();
+                }
+            } catch (err) {
+                console.error("Screenshot error:", err);
+            }
+        }
+        
+        // Başlangıçta ekran görüntüsü al
+        captureScreen();
+
+        function drawOverlay() {
+            ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            
+            // Tüm alanı yarı saydam siyah yap
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+            if (currentRect) {
+                // Seçilen alanı şeffaf yap (arkadaki screenshot görünsün)
+                ctx.clearRect(currentRect.x, currentRect.y, currentRect.w, currentRect.h);
+                
+                // Seçim kenarlığı çiz
+                ctx.strokeStyle = '#22c55e'; // Yeşil kenarlık
+                ctx.lineWidth = 2;
+                ctx.strokeRect(currentRect.x, currentRect.y, currentRect.w, currentRect.h);
+            }
+        }
+
+        overlayCanvas.addEventListener('mousedown', (e) => {
+            if (hasSelected) return;
+            isDrawing = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            currentRect = { x: startX, y: startY, w: 0, h: 0 };
+            controls.style.display = 'none';
+            hintBox.style.display = 'none';
+        });
+
+        overlayCanvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const currentX = e.clientX;
+            const currentY = e.clientY;
+            
+            currentRect = {
+                x: Math.min(startX, currentX),
+                y: Math.min(startY, currentY),
+                w: Math.abs(currentX - startX),
+                h: Math.abs(currentY - startY)
+            };
+            drawOverlay();
+        });
+
+        overlayCanvas.addEventListener('mouseup', () => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            if (currentRect && currentRect.w > 20 && currentRect.h > 20) {
+                hasSelected = true;
+                
+                // Kontrolleri göster
+                controls.style.display = 'flex';
+                let controlX = currentRect.x + currentRect.w - controls.offsetWidth;
+                let controlY = currentRect.y + currentRect.h + 10;
+                
+                // Ekrana sığma kontrolü
+                if (controlX < 0) controlX = currentRect.x;
+                if (controlY + 50 > window.innerHeight) controlY = currentRect.y - 50;
+                
+                controls.style.left = controlX + 'px';
+                controls.style.top = controlY + 'px';
+            } else {
+                currentRect = null;
+                drawOverlay();
+                hintBox.style.display = 'block';
+            }
+        });
+
+        function resetCrop() {
+            currentRect = null;
+            hasSelected = false;
+            controls.style.display = 'none';
+            hintBox.style.display = 'block';
+            drawOverlay();
+        }
+
+        function publishCrop() {
+            if (!currentRect) return;
+            
+            try {
+                // Gizli bir canvas'ta o alanı kırpıp DataURL'e çevirelim
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = currentRect.w;
+                tempCanvas.height = currentRect.h;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // fullScreenshotData çözünürlüğü (DPI) farklı olabilir, bu yüzden ekrana birebir çizilmiş
+                // bgCanvas'ı kaynak olarak kullanmak koordinatların (x, y) birebir uyuşmasını sağlar.
+                tempCtx.drawImage(
+                    bgCanvas, 
+                    currentRect.x, currentRect.y, currentRect.w, currentRect.h, // Source
+                    0, 0, currentRect.w, currentRect.h // Destination
+                );
+                
+                const croppedDataUrl = tempCanvas.toDataURL('image/png');
+                
+                // Main process'e ilet
+                ipcRenderer.send('publish-crop', croppedDataUrl);
+            } catch (err) {
+                alert("Yayınlama sırasında hata oluştu: " + err.message);
+                console.error(err);
+            }
+        }
+
+        function cancelCrop() {
+            ipcRenderer.send('cancel-crop');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') cancelCrop();
+        });
+    </script>
+</body>
+</html>

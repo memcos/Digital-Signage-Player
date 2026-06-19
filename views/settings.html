@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Yönetim Paneli</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { padding: 20px; background: #f0f2f5; font-family: 'Segoe UI', sans-serif; font-size: 0.95rem; }
+        .card { border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .list-group-item { transition: all 0.2s; border-left: 5px solid transparent; }
+        .list-group-item:hover { background-color: #f8f9fa; }
+        .status-active { border-left-color: #198754; }
+        .status-passive { border-left-color: #dc3545; opacity: 0.7; }
+        .msg-row { display: flex; align-items: center; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; background: white; }
+        /* IBAN Styles */
+        .iban-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #eee; background: white; transition: all 0.2s; }
+        .iban-item:hover { background: #f8f9fa; }
+        .iban-item.default { border-left: 3px solid #6366f1; background: #f5f3ff; }
+        .iban-item .iban-info { flex: 1; overflow: hidden; }
+        .iban-item .iban-bank { font-weight: 600; font-size: 0.85rem; color: #374151; }
+        .iban-item .iban-holder { font-size: 0.75rem; color: #6b7280; }
+        .iban-item .iban-number { font-size: 0.72rem; color: #9ca3af; font-family: monospace; }
+        .shortcut-input { cursor: pointer; text-align: center; font-weight: 600; color: #6366f1; background: #f5f3ff; border: 1px dashed #a5b4fc; }
+        .shortcut-input:focus { border-style: solid; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.2); }
+    </style>
+</head>
+<body>
+    <div class="container-fluid" style="max-width: 1100px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+             <h3 class="text-dark fw-bold m-0"><i class="fa fa-tv text-primary"></i> <span data-i18n="app_title">Digital Ekran Yönetimi</span></h3>
+				<select id="languageSelect" class="form-select w-auto bg-light border-0 fw-bold text-primary" onchange="changeLanguage()">
+                 <option value="tr">🇹🇷 Türkçe</option>
+                 <option value="en">🇬🇧 English</option>
+                 <option value="de">🇩🇪 Deutsch</option>
+                 <option value="fr">🇫🇷 Français</option>
+                 <option value="ar">🇸🇦 العربية</option>
+             </select>
+        </div>
+        
+        <form id="settingsForm">
+            <div class="row">
+                <div class="col-md-5">
+                    <div class="card p-3">
+                        <h6 class="text-secondary border-bottom pb-2" data-i18n="system_settings">Sistem Ayarları</h6>
+                        <div class="d-flex gap-3 mb-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="autoStart">
+                                <label class="form-check-label small" data-i18n="auto_start">Otomatik Başlat</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="showSettingsOnLaunch">
+                                <label class="form-check-label small" data-i18n="settings_on_launch">Açılışta Ayarlar</label>
+                            </div>
+                        </div>
+                        <div class="alert alert-warning py-1 px-2 mb-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="preventMainScreen">
+                                <label class="form-check-label small fw-bold text-dark" data-i18n="prevent_main_screen">Sadece 2. Ekranda Oynat</label>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <label class="form-label small" data-i18n="screen_orientation">Yön</label>
+                                <select id="orientation" class="form-select form-select-sm">
+                                    <option value="landscape" data-i18n="landscape">Yatay</option>
+                                    <option value="portrait" data-i18n="portrait">Dikey</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small" data-i18n="monitor">Monitör</label>
+                                <select id="monitorId" class="form-select form-select-sm">
+                                    <option value="0" data-i18n="monitor_main">Ana (0)</option>
+                                    <option value="1" data-i18n="monitor_second">İkinci (1)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-3 border-start border-4 border-warning">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="text-secondary m-0"><i class="fa fa-volume-up"></i> <span data-i18n="audio_settings">Ses Ayarları</span></h6>
+                            <div class="form-check form-switch m-0">
+                                <input class="form-check-input" type="checkbox" id="audioUnmuted">
+                                <label class="form-check-label small fw-bold" data-i18n="audio_enabled">Ses Açık</label>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="small text-muted"><span data-i18n="volume_level">Ses Seviyesi</span>: %<span id="volumeVal" class="fw-bold">80</span></label>
+                            <input type="range" id="audioVolume" class="form-range" min="0" max="100" value="80" oninput="document.getElementById('volumeVal').innerText=this.value">
+                        </div>
+                        <div>
+                            <label class="small text-muted" data-i18n="output_device">Çıkış Cihazı</label>
+                            <select id="audioDeviceId" class="form-select form-select-sm">
+                                <option value="default" data-i18n="default_device">Varsayılan</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="card p-3 border-start border-4 border-primary">
+                        <h6 class="text-secondary border-bottom pb-2"><i class="fa fa-credit-card text-primary"></i> <span data-i18n="iban_settings">IBAN Ayarları</span></h6>
+                        <div class="row g-2 mb-2">
+                            <div class="col-12">
+                                <input type="text" id="ibanNumber" class="form-control form-control-sm" placeholder="TR00 0000 0000 0000 0000 0000 00" data-i18n-placeholder="iban_number_placeholder" maxlength="32" oninput="formatIBANInput(this)">
+                            </div>
+                            <div class="col-6">
+                                <input type="text" id="ibanHolderName" class="form-control form-control-sm" placeholder="Ad Soyad" data-i18n-placeholder="iban_holder_placeholder">
+                            </div>
+                            <div class="col-6">
+                                <input type="text" id="ibanBankName" class="form-control form-control-sm" placeholder="Banka Adı" data-i18n-placeholder="bank_name_placeholder" list="bankNameList">
+                                <datalist id="bankNameList">
+                                    <option value="Ziraat Bankası">
+                                    <option value="Vakıfbank">
+                                    <option value="Halkbank">
+                                    <option value="İş Bankası">
+                                    <option value="Garanti BBVA">
+                                    <option value="Yapı Kredi">
+                                    <option value="Akbank">
+                                    <option value="QNB Finansbank">
+                                    <option value="Denizbank">
+                                    <option value="TEB">
+                                    <option value="ING">
+                                    <option value="HSBC">
+                                    <option value="Şekerbank">
+                                    <option value="Kuveyt Türk">
+                                    <option value="Türkiye Finans">
+                                    <option value="Albaraka Türk">
+                                    <option value="Enpara">
+                                    <option value="Papara">
+                                    <option value="CEPTETEB">
+                                </datalist>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary w-100 mb-2" onclick="addIBAN()"><i class="fa fa-plus"></i> <span data-i18n="btn_add_iban">IBAN Ekle</span></button>
+                        <div id="ibanListContainer" class="border rounded bg-light mb-2" style="max-height: 130px; overflow-y: auto;"></div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="small text-muted flex-shrink-0" data-i18n="iban_shortcut">Kısayol Tuşu</label>
+                            <input type="text" id="ibanShortcut" class="form-control form-control-sm shortcut-input" value="Ctrl+Shift+Q" readonly onclick="captureShortcut(this)" data-i18n-placeholder="iban_shortcut_hint">
+                        </div>
+                    </div>
+
+                    <div class="card p-3 mb-3">
+                        <h6 class="text-secondary border-bottom pb-2 mb-3" data-i18n="crop_publish_title">Kırp & Yayınla</h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="small text-muted flex-shrink-0" data-i18n="crop_shortcut">Kısayol Tuşu</label>
+                            <input type="text" id="cropShortcut" class="form-control form-control-sm shortcut-input" value="Ctrl+Shift+Y" readonly onclick="captureShortcut(this)" data-i18n-placeholder="crop_shortcut_hint">
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="col-md-7">
+                    <div class="card p-3 mb-3">
+                        <h6 class="text-success border-bottom pb-2" data-i18n="content_management">İçerik Yönetimi</h6>
+                        <div class="mb-3 p-2 bg-light rounded border">
+                            <label class="small fw-bold text-secondary" data-i18n="default_folder">1. Varsayılan Klasör</label>
+                            <div class="input-group input-group-sm mt-1">
+                                <input type="text" id="signageFolder" class="form-control" readonly placeholder="...">
+                                <button class="btn btn-outline-secondary" type="button" id="btnSelectFolder" data-i18n="btn_select">Seç</button>
+                                <input type="number" id="durationImage" class="form-control" style="max-width: 80px;" placeholder="Sn" data-i18n-placeholder="folder_duration_placeholder">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="small fw-bold text-secondary" data-i18n="custom_list">2. Özel Liste</label>
+                            <button type="button" class="btn btn-sm btn-success fw-bold" onclick="openItemModal()"><i class="fa fa-plus-circle"></i> <span data-i18n="btn_add_content">İÇERİK EKLE</span></button>
+                        </div>
+                        <div id="contentList" class="list-group list-group-flush border rounded mb-3" style="max-height: 250px; overflow-y: auto; min-height: 100px;"></div>
+                        <div class="bg-light p-2 rounded border border-info">
+                            <label class="small fw-bold text-info" data-i18n="shared_backup">Ortak Paylaşım</label>
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" id="sharedListPath" class="form-control" readonly placeholder="...">
+                                <button class="btn btn-outline-info" type="button" id="btnSelectShared" data-i18n="btn_select">Seç</button>
+                                <button class="btn btn-outline-danger" type="button" onclick="clearSharedPath()">X</button>
+                            </div>
+                            <div class="d-flex gap-2 justify-content-end">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportList()" data-i18n="btn_full_backup">Tam Yedek</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="importList()" data-i18n="btn_restore_backup">Yedek Yükle</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-3">
+                        <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                            <h6 class="text-secondary m-0" data-i18n="info_bar">Bilgi Çubuğu</h6>
+                            <div class="form-check form-switch m-0">
+                                <input class="form-check-input" type="checkbox" id="showInfoBar" onchange="toggleBarSettings()">
+                            </div>
+                        </div>
+                        <div id="barSettings">
+                            <div class="row mb-2">
+                                <div class="col-4"><input type="text" id="CompanyName" class="form-control form-control-sm" placeholder="Eczane Adı" data-i18n-placeholder="company_name_placeholder"></div>
+                                <div class="col-2"><input type="color" id="barColor" class="form-control form-control-color w-100" value="#198754"></div>
+                                <div class="col-6">
+                                    <input type="range" id="barOpacity" class="form-range" min="10" max="100" value="100" oninput="document.getElementById('opacityVal').innerText=this.value"> 
+                                    <span class="small text-muted"><span data-i18n="bar_opacity">Saydamlık</span>: %<span id="opacityVal">100</span></span>
+                                </div>
+                            </div>
+                            <div class="mb-3 border-bottom pb-2">
+                                <label class="small text-muted"><span data-i18n="scroll_speed">Hız</span>: <span id="speedVal" class="fw-bold">20</span></label>
+                                <input type="range" id="scrollSpeed" class="form-range" min="5" max="100" value="20" oninput="document.getElementById('speedVal').innerText=this.value">
+                            </div>
+                            <label class="small fw-bold text-primary" data-i18n="scroll_messages">Kayan Yazılar</label>
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" id="newMessageText" class="form-control" placeholder="..." data-i18n-placeholder="message_placeholder">
+                                <button class="btn btn-primary" type="button" onclick="addMessage()" data-i18n="btn_add">Ekle</button>
+                            </div>
+                            <div id="messageListContainer" class="border rounded bg-light" style="max-height: 150px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold fs-5 shadow mt-3" data-i18n="btn_save_publish">KAYDET VE YAYINLA</button>
+        </form>
+    </div>
+
+    <div class="modal fade" id="itemModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title" id="modalTitle" data-i18n="modal_title_new">İçerik Ekle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editIndex">
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#general" data-i18n="tab_general">Genel</a></li>
+                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#schedule" data-i18n="tab_schedule">Zamanlama</a></li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="general">
+                            <div class="mb-3">
+                                <label class="fw-bold" data-i18n="label_type">Tip</label>
+                                <select id="contentTypeSelect" class="form-select" onchange="updateModalUI()">
+                                    <option value="file" data-i18n="type_file">Dosya</option>
+                                    <option value="web" data-i18n="type_web">Web</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label data-i18n="label_path">Yol / URL</label>
+                                <div class="input-group">
+                                    <input type="text" id="itemPath" class="form-control" onchange="checkDurationStatus()">
+                                    <button class="btn btn-secondary" type="button" id="btnBrowseFile" data-i18n="btn_browse">Gözat</button>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label data-i18n="label_duration">Süre</label>
+                                <input type="number" id="itemDuration" class="form-control" value="30">
+                                <div class="form-text small" id="durationHelp"></div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="itemActive" checked>
+                                <label data-i18n="label_active">Aktif</label>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="schedule">
+                            <div class="card p-2 mb-2 bg-light">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="useDateRange">
+                                    <label data-i18n="label_date_range">Tarih Aralığı</label>
+                                </div>
+                                <div class="row mt-2"><div class="col-6"><input type="date" id="startDate" class="form-control"></div><div class="col-6"><input type="date" id="endDate" class="form-control"></div></div>
+                            </div>
+                            <div class="card p-2 mb-2 bg-light">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="useTimeRange">
+                                    <label data-i18n="label_time_range">Saat Aralığı</label>
+                                </div>
+                                <div class="row mt-2"><div class="col-6"><input type="time" id="startTime" class="form-control"></div><div class="col-6"><input type="time" id="endTime" class="form-control"></div></div>
+                            </div>
+                            <div class="card p-2 bg-light">
+                                <label data-i18n="label_days">Günler</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <div class="form-check"><input class="form-check-input day-check" type="checkbox" value="1" checked> Pzt</div>
+                                    <div class="form-check"><input class="form-check-input day-check" type="checkbox" value="2" checked> Sal</div>
+                                    <div class="form-check"><input class="form-check-input day-check" type="checkbox" value="3" checked> Çar</div>
+                                    <div class="form-check"><input class="form-check-input day-check" type="checkbox" value="4" checked> Per</div>
+                                    <div class="form-check"><input class="form-check-input day-check" type="checkbox" value="5" checked> Cum</div>
+                                    <div class="form-check"><input class="form-check-input day-check" type="checkbox" value="6" checked> Cmt</div>
+                                    <div class="form-check"><input class="form-check-input day-check" type="checkbox" value="0" checked> Paz</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="btn_cancel">İptal</button>
+                    <button type="button" class="btn btn-primary" onclick="saveManualItem()" data-i18n="btn_save_list">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const { ipcRenderer } = require('electron');
+        const path = require('path');
+        const fs = require('fs');
+
+        let manualList = [], messageList = [], ibanList = [], modalInstance = null;
+        let currentLang = 'tr';
+        let translations = {};
+
+		// --- DİL YÖNETİMİ (GÜNCELLENDİ) ---
+		async function loadTranslations(lang) {
+            currentLang = lang;
+            document.getElementById('languageSelect').value = lang;
+            
+            // YENİ: Arapça ise sayfayı sağdan sola (RTL) çevir
+            if (lang === 'ar') {
+                document.body.setAttribute('dir', 'rtl');
+            } else {
+                document.body.setAttribute('dir', 'ltr');
+            }
+            
+            try {
+                // Dosyayı main.js üzerinden iste (IPC)
+                const data = await ipcRenderer.invoke('get-locale', lang);
+                
+                if (data) {
+                    translations = data;
+                    applyTranslations();
+                } else {
+                    console.error("Dil verisi boş geldi.");
+                }
+            } catch (e) {
+                console.error("Dil yükleme hatası:", e);
+            }
+        }
+
+        function applyTranslations() {
+            // Text içeriği olanlar
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if(translations[key]) el.innerText = translations[key];
+            });
+            // Placeholder olanlar
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if(translations[key]) el.placeholder = translations[key];
+            });
+            
+            // Dinamik güncellemeler
+            // Başlıkları güncellemek için modalı tetiklemeden text değişimi
+            const editIndex = document.getElementById('editIndex').value;
+            const modalTitle = document.getElementById('modalTitle');
+            if(editIndex === "" || editIndex === "-1") {
+                modalTitle.innerText = t('modal_title_new');
+            } else {
+                modalTitle.innerText = t('modal_title_edit');
+            }
+            
+            // Input placeholderlarını güncelle
+            updateModalUI();
+        }
+
+        window.changeLanguage = function() {
+            const lang = document.getElementById('languageSelect').value;
+            loadTranslations(lang);
+        };
+
+        // Get Translation helper (JS içinden çağırmak için)
+        function t(key) {
+            return translations[key] || key;
+        }
+
+        // --- STANDART KODLAR ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const modalEl = document.getElementById('itemModal');
+            if(window.bootstrap) modalInstance = new bootstrap.Modal(modalEl);
+            loadAudioDevices();
+        });
+
+        async function loadAudioDevices() {
+            try { const devices = await navigator.mediaDevices.enumerateDevices(); const s = document.getElementById('audioDeviceId'); 
+            // Seçenekleri temizle ama ilkini tutma (çeviri için yeniden yapacağız)
+            s.innerHTML = `<option value="default">${t('default_device')}</option>`; 
+            devices.forEach(d => { if (d.kind === 'audiooutput' && d.deviceId !== 'default') { const o = document.createElement('option'); o.value = d.deviceId; o.text = d.label || `Audio ${s.length}`; s.appendChild(o); } }); } catch (err) { console.error(err); }
+        }
+
+        window.toggleBarSettings = () => { document.getElementById('barSettings').style.opacity = document.getElementById('showInfoBar').checked ? 1 : 0.5; };
+        
+        window.addMessage = () => { const txt = document.getElementById('newMessageText').value.trim(); if(txt){ messageList.push({text:txt, active:true}); document.getElementById('newMessageText').value=''; renderMessageList(); }};
+        window.toggleMessage = (i) => { messageList[i].active = !messageList[i].active; renderMessageList(); };
+        window.deleteMessage = (i) => { messageList.splice(i,1); renderMessageList(); };
+        function renderMessageList() { const c = document.getElementById('messageListContainer'); c.innerHTML=''; messageList.forEach((m,i)=>{ c.innerHTML+=`<div class="msg-row"><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" ${m.active?'checked':''} onchange="toggleMessage(${i})"></div><span class="small text-truncate mx-2 ${m.active?'':'text-muted text-decoration-line-through'}" style="flex:1">${m.text}</span><button type="button" class="btn btn-sm btn-outline-danger border-0 py-0" onclick="deleteMessage(${i})">X</button></div>`}); }
+
+        // --- IBAN YÖNETİMİ ---
+        const BANKS = [
+            ["00100","0100","Adabank A.Ş."],["00046","0046","Akbank T.A.Ş."],["00143","0143","Aktif Yatırım Bankası A.Ş."],
+            ["00203","0203","Albaraka Türk Katılım Bankası A.Ş."],["00124","0124","Alternatifbank A.Ş."],
+            ["00135","0135","Anadolubank A.Ş."],["00091","0091","Arap Türk Bankası A.Ş."],["00094","0094","Bank Mellat"],
+            ["00129","0129","Bank of America Yatırım Bank A.Ş."],["00149","0149","Bank of China Turkey A.Ş."],
+            ["00142","0142","BankPozitif Kredi ve Kalkınma Bankası A.Ş."],["00029","0029","Birleşik Fon Bankası A.Ş."],
+            ["00125","0125","Burgan Bank A.Ş."],["00092","0092","Citibank A.Ş."],["00134","0134","Denizbank A.Ş."],
+            ["00115","0115","Deutsche Bank A.Ş."],["00138","0138","Diler Yatırım Bankası A.Ş."],
+            ["00103","0103","Fibabanka A.Ş."],["00150","0150","Golden Global Yatırım Bankası A.Ş."],
+            ["00139","0139","GSD Yatırım Bankası A.Ş."],["00097","0097","Habib Bank Limited"],
+            ["00123","0123","HSBC Bank A.Ş."],["00109","0109","ICBC Turkey Bank A.Ş."],["00099","0099","ING Bank A.Ş."],
+            ["00148","0148","Intesa Sanpaolo S.p.A."],["00004","0004","İller Bankası A.Ş."],
+            ["00132","0132","İstanbul Takas ve Saklama Bankası A.Ş."],["00098","0098","JPMorgan Chase Bank N.A."],
+            ["00205","0205","Kuveyt Türk Katılım Bankası A.Ş."],["00147","0147","MUFG Bank Turkey A.Ş."],
+            ["00141","0141","Nurol Yatırım Bankası A.Ş."],["00146","0146","Odea Bank A.Ş."],
+            ["00116","0116","Pasha Yatırım Bankası A.Ş."],["00111","0111","QNB Finansbank A.Ş."],
+            ["00137","0137","Rabobank A.Ş."],["00122","0122","Société Générale (SA)"],
+            ["00121","0121","Standard Chartered Yatırım Bankası Türk A.Ş."],["00096","0096","Turkish Bank A.Ş."],
+            ["00108","0108","Turkland Bank A.Ş."],["00032","0032","Türk Ekonomi Bankası A.Ş."],
+            ["00016","0016","Türk Eximbank"],["00010","0010","Türkiye Cumhuriyeti Ziraat Bankası A.Ş."],
+            ["00211","0211","Türkiye Emlak Katılım Bankası A.Ş."],["00206","0206","Türkiye Finans Katılım Bankası A.Ş."],
+            ["00062","0062","Türkiye Garanti Bankası A.Ş."],["00012","0012","Türkiye Halk Bankası A.Ş."],
+            ["00064","0064","Türkiye İş Bankası A.Ş."],["00017","0017","Türkiye Kalkınma ve Yatırım Bankası A.Ş."],
+            ["00014","0014","Türkiye Sınai Kalkınma Bankası A.Ş."],["00015","0015","Türkiye Vakıflar Bankası T.A.O."],
+            ["00020","0020","Vakıf Katılım Bankası A.Ş."],["00067","0067","Yapı ve Kredi Bankası A.Ş."],
+            ["00209","0209","Ziraat Katılım Bankası A.Ş."],["00059","0059","Şekerbank T.A.Ş."]
+        ];
+
+        const bankMap = new Map();
+        for (const [code5, code4, name] of BANKS) {
+            bankMap.set(code5, name);
+            bankMap.set(code4, name);
+        }
+
+        function ibanMod97Valid(iban) {
+            const clean = iban.replace(/\s+/g, "").toUpperCase();
+            if (!/^TR\d{24}$/.test(clean)) return false;
+            const rearranged = clean.slice(4) + clean.slice(0, 4);
+            let remainder = 0;
+            for (const ch of rearranged) {
+                const chunk = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch;
+                for (const digit of chunk) {
+                    remainder = (remainder * 10 + Number(digit)) % 97;
+                }
+            }
+            return remainder === 1;
+        }
+
+        window.formatIBANInput = (input) => {
+            let val = input.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            if (val.length > 26) val = val.substring(0, 26);
+            let formatted = '';
+            for (let i = 0; i < val.length; i++) {
+                if (i === 4 || i === 8 || i === 12 || i === 16 || i === 20 || i === 24) formatted += ' ';
+                formatted += val[i];
+            }
+            input.value = formatted;
+
+            // Banka adını otomatik bul ve inputa yaz
+            if (val.length >= 9 && val.startsWith('TR')) {
+                const code5 = val.slice(4, 9);
+                const bankName = bankMap.get(code5);
+                if (bankName) {
+                    document.getElementById('ibanBankName').value = bankName;
+                }
+            } else if (val.length < 9) {
+                document.getElementById('ibanBankName').value = '';
+            }
+        };
+
+        window.addIBAN = () => {
+            const ibanRaw = document.getElementById('ibanNumber').value.replace(/\s/g, '').toUpperCase();
+            const holderName = document.getElementById('ibanHolderName').value.trim();
+            let bankName = document.getElementById('ibanBankName').value.trim();
+
+            if (!ibanRaw || !ibanRaw.startsWith('TR') || ibanRaw.length !== 26) {
+                alert('IBAN hatalı: Türkiye IBAN numarası TR ile başlamalı ve 26 karakter olmalıdır.');
+                return;
+            }
+
+            if (!ibanMod97Valid(ibanRaw)) {
+                alert('IBAN hatalı: Mod97 kontrolü başarısız. Lütfen IBAN numarasını kontrol edip tekrar deneyin.');
+                return;
+            }
+
+            if (!bankName) {
+                const code5 = ibanRaw.slice(4, 9);
+                bankName = bankMap.get(code5) || `Bilinmeyen Banka (${code5})`;
+            }
+
+            if (!holderName) {
+                alert('Lütfen IBAN sahibinin adını ve soyadını girin.');
+                return;
+            }
+
+            ibanList.push({
+                iban: ibanRaw,
+                holderName: holderName,
+                bankName: bankName,
+                isDefault: ibanList.length === 0 // First one is default
+            });
+
+            document.getElementById('ibanNumber').value = '';
+            document.getElementById('ibanHolderName').value = '';
+            document.getElementById('ibanBankName').value = '';
+            renderIbanList();
+        };
+
+        window.deleteIBAN = (i) => {
+            const wasDefault = ibanList[i].isDefault;
+            ibanList.splice(i, 1);
+            if (wasDefault && ibanList.length > 0) ibanList[0].isDefault = true;
+            renderIbanList();
+        };
+
+        window.setDefaultIBAN = (i) => {
+            ibanList.forEach((item, idx) => item.isDefault = (idx === i));
+            renderIbanList();
+        };
+
+        function renderIbanList() {
+            const c = document.getElementById('ibanListContainer');
+            if (!c) return;
+            c.innerHTML = '';
+            if (ibanList.length === 0) {
+                c.innerHTML = '<div class="text-center text-muted small py-3"><i class="fa fa-credit-card opacity-25"></i><br>Henüz IBAN eklenmemiş</div>';
+                return;
+            }
+            ibanList.forEach((item, i) => {
+                const shortIban = item.iban.substring(0, 4) + ' **** ' + item.iban.substring(item.iban.length - 4);
+                c.innerHTML += `<div class="iban-item ${item.isDefault ? 'default' : ''}">
+                    <div class="iban-info">
+                        <div class="iban-bank">${item.bankName} ${item.isDefault ? '<span class="badge bg-primary" style="font-size:0.65rem">Varsayılan</span>' : ''}</div>
+                        <div class="iban-holder">${item.holderName}</div>
+                        <div class="iban-number">${shortIban}</div>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        ${!item.isDefault ? '<button type="button" class="btn btn-outline-primary border-0 py-0" onclick="setDefaultIBAN('+i+')" title="Varsayılan Yap"><i class="fa fa-star"></i></button>' : ''}
+                        <button type="button" class="btn btn-outline-danger border-0 py-0" onclick="deleteIBAN(${i})"><i class="fa fa-trash"></i></button>
+                    </div>
+                </div>`;
+            });
+        }
+
+        // Shortcut key capture
+        window.captureShortcut = (input) => {
+            input.value = 'Tuş bileşimine basın...';
+            input.style.borderColor = '#6366f1';
+            
+            const handler = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+                
+                let combo = [];
+                if (e.ctrlKey) combo.push('Ctrl');
+                if (e.shiftKey) combo.push('Shift');
+                if (e.altKey) combo.push('Alt');
+                
+                let key = e.key.toUpperCase();
+                if (key === ' ') key = 'Space';
+                combo.push(key);
+                
+                input.value = combo.join('+');
+                input.style.borderColor = '';
+                document.removeEventListener('keydown', handler, true);
+            };
+            
+            document.addEventListener('keydown', handler, true);
+        };
+
+        window.openItemModal = (i=-1) => {
+            if(!modalInstance) return; 
+            document.getElementById('editIndex').value=i; 
+            // Başlığı Çevir
+            document.getElementById('modalTitle').innerText = (i===-1) ? t('modal_title_new') : t('modal_title_edit');
+            
+            if(i===-1){ document.getElementById('contentTypeSelect').value='file'; document.getElementById('itemPath').value=''; document.getElementById('itemDuration').value=30; document.getElementById('itemActive').checked=true; document.getElementById('useDateRange').checked=false; document.getElementById('startDate').value=''; document.getElementById('endDate').value=''; document.getElementById('useTimeRange').checked=false; document.getElementById('startTime').value=''; document.getElementById('endTime').value=''; document.querySelectorAll('.day-check').forEach(c=>c.checked=true); }
+            else { const it=manualList[i]; document.getElementById('contentTypeSelect').value=it.type; document.getElementById('itemPath').value=it.path; document.getElementById('itemDuration').value=it.duration||30; document.getElementById('itemActive').checked=it.active; const s=it.schedule||{}; document.getElementById('useDateRange').checked=s.useDate||false; document.getElementById('startDate').value=s.startDate||''; document.getElementById('endDate').value=s.endDate||''; document.getElementById('useTimeRange').checked=s.useTime||false; document.getElementById('startTime').value=s.startTime||''; document.getElementById('endTime').value=s.endTime||''; const d=s.days||[0,1,2,3,4,5,6]; document.querySelectorAll('.day-check').forEach(c=>{c.checked=d.includes(parseInt(c.value));}); }
+            updateModalUI(); modalInstance.show();
+        };
+
+        window.updateModalUI = () => { 
+            const type=document.getElementById('contentTypeSelect').value; 
+            const btn=document.getElementById('btnBrowseFile'); 
+            const inp=document.getElementById('itemPath'); 
+            if(type==='file'){
+                btn.style.display='block'; inp.readOnly=true; 
+                inp.placeholder=t('alert_path_missing'); // Placeholder çevirisi
+            }else{
+                btn.style.display='none'; inp.readOnly=false; inp.placeholder="https://...";
+            } 
+            checkDurationStatus(); 
+        };
+
+        window.checkDurationStatus = () => { 
+            const type=document.getElementById('contentTypeSelect').value; 
+            const path=document.getElementById('itemPath').value.toLowerCase(); 
+            const dur=document.getElementById('itemDuration'); 
+            const help=document.getElementById('durationHelp'); 
+            const isVideo=(type==='file'&&(path.endsWith('.mp4')||path.endsWith('.webm'))); 
+            if(isVideo){
+                dur.disabled=true; dur.value=''; dur.placeholder="Auto"; 
+                help.innerText=""; // Video ise boş bırak veya çeviri ekle
+            }else{
+                dur.disabled=false; if(!dur.value)dur.value=30; dur.placeholder=""; 
+                help.innerText=t('label_duration'); 
+            } 
+        };
+
+        window.saveManualItem = () => { 
+            const i=parseInt(document.getElementById('editIndex').value); 
+            const type=document.getElementById('contentTypeSelect').value; 
+            const path=document.getElementById('itemPath').value; 
+            if(!path){alert(t('alert_path_missing'));return;} 
+            let d=parseInt(document.getElementById('itemDuration').value); if(isNaN(d))d=null; 
+            const da=[]; document.querySelectorAll('.day-check:checked').forEach(c=>da.push(parseInt(c.value))); 
+            const n={type:type,path:path,duration:d,active:document.getElementById('itemActive').checked,schedule:{useDate:document.getElementById('useDateRange').checked,startDate:document.getElementById('startDate').value,endDate:document.getElementById('endDate').value,useTime:document.getElementById('useTimeRange').checked,startTime:document.getElementById('startTime').value,endTime:document.getElementById('endTime').value,days:da}}; 
+            if(i===-1)manualList.push(n);else manualList[i]=n; renderList(); modalInstance.hide(); 
+        };
+
+        window.editItem=(i)=>openItemModal(i); 
+        window.deleteItem=(i)=>{if(confirm("Sil?")){manualList.splice(i,1);renderList();}}; 
+        window.moveItem=(i,d)=>{if((d===-1&&i>0)||(d===1&&i<manualList.length-1)){[manualList[i],manualList[i+d]]=[manualList[i+d],manualList[i]];renderList();}};
+        
+        function renderList(){ 
+            const e=document.getElementById('contentList'); e.innerHTML=''; 
+            manualList.forEach((it,i)=>{ 
+                const ic=it.type==='file'?'fa-image':'fa-globe'; 
+                const s=it.active?'status-active':'status-passive'; 
+                const n=it.type==='file'?it.path.split(/[\\/]/).pop():it.path; 
+                const d=it.duration?it.duration+'sn':'Oto'; 
+                e.innerHTML+=`<div class="list-group-item d-flex justify-content-between align-items-center ${s}"><div class="d-flex align-items-center overflow-hidden"><span class="me-2 fw-bold text-secondary">${i+1}</span><div class="text-truncate" style="max-width:350px"><i class="fa ${ic}"></i> ${n} <small class="text-muted">(${d})</small></div></div><div class="btn-group"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveItem(${i},-1)">▲</button><button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveItem(${i},1)">▼</button><button type="button" class="btn btn-sm btn-outline-primary" onclick="editItem(${i})"><i class="fa fa-edit"></i></button><button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteItem(${i})"><i class="fa fa-trash"></i></button></div></div>`; 
+            }); 
+        }
+
+        window.clearSharedPath = () => { document.getElementById('sharedListPath').value = ''; };
+        window.exportList = () => { 
+            const bd = { 
+                type:'full_backup', 
+                settings:{ 
+                    language:currentLang, 
+                    CompanyName:document.getElementById('CompanyName').value, 
+                    barColor:document.getElementById('barColor').value, 
+                    barOpacity:document.getElementById('barOpacity').value, 
+                    scrollSpeed:document.getElementById('scrollSpeed').value, 
+                    audioVolume:document.getElementById('audioVolume').value, 
+                    audioMuted:!document.getElementById('audioUnmuted').checked, 
+                    preventMainScreen:document.getElementById('preventMainScreen').checked 
+                }, 
+                messageList:messageList, 
+                manualList:manualList,
+                ibanList:ibanList
+            };
+            ipcRenderer.send('export-list', bd); 
+        };
+        
+        window.importList = async () => {
+            const d = await ipcRenderer.invoke('import-list'); if(!d)return;
+            if(Array.isArray(d)) manualList=d;
+            else { 
+                if(d.manualList) manualList=d.manualList; 
+                if(d.messageList) messageList=d.messageList;
+                if(d.ibanList) { ibanList = d.ibanList; renderIbanList(); }
+                if(d.settings) {
+                    // Dil ayarını yükle
+                    if(d.settings.language) loadTranslations(d.settings.language);
+
+                    if(d.settings.CompanyName) document.getElementById('CompanyName').value=d.settings.CompanyName;
+                    if(d.settings.barColor) document.getElementById('barColor').value=d.settings.barColor;
+                    if(d.settings.barOpacity) { document.getElementById('barOpacity').value=d.settings.barOpacity; document.getElementById('opacityVal').innerText=d.settings.barOpacity; }
+                    if(d.settings.scrollSpeed) { document.getElementById('scrollSpeed').value=d.settings.scrollSpeed; document.getElementById('speedVal').innerText=d.settings.scrollSpeed; }
+                    if(d.settings.audioVolume) { document.getElementById('audioVolume').value=d.settings.audioVolume; document.getElementById('volumeVal').innerText=d.settings.audioVolume; }
+                    if(d.settings.audioMuted !== undefined) document.getElementById('audioUnmuted').checked = !d.settings.audioMuted;
+                    if(d.settings.preventMainScreen !== undefined) document.getElementById('preventMainScreen').checked = d.settings.preventMainScreen;
+                }
+            }
+            renderList(); renderMessageList(); alert(t('alert_backup_loaded'));
+        };
+
+        document.getElementById('btnSelectFolder').addEventListener('click', async () => { const p=await ipcRenderer.invoke('select-folder'); if(p)document.getElementById('signageFolder').value=p; });
+        document.getElementById('btnSelectShared').addEventListener('click', async () => { const p=await ipcRenderer.invoke('select-shared-folder'); if(p)document.getElementById('sharedListPath').value=p; });
+        document.getElementById('btnBrowseFile').addEventListener('click', async () => { const p=await ipcRenderer.invoke('select-file'); if(p){document.getElementById('itemPath').value=p;checkDurationStatus();} });
+
+        // BAŞLANGIÇ YÜKLEMESİ
+        ipcRenderer.send('get-settings');
+        ipcRenderer.on('settings-data', (e, config) => {
+            // DİL YÜKLEME (İlk iş)
+            loadTranslations(config.language || 'tr');
+
+            document.getElementById('monitorId').value = config.monitorId;
+            document.getElementById('orientation').value = config.orientation;
+            document.getElementById('autoStart').checked = config.autoStart;
+            document.getElementById('showSettingsOnLaunch').checked = config.showSettingsOnLaunch;
+            document.getElementById('preventMainScreen').checked = config.preventMainScreen || false;
+            
+            document.getElementById('showInfoBar').checked = config.showInfoBar;
+            document.getElementById('CompanyName').value = config.CompanyName;
+            document.getElementById('barColor').value = config.barColor;
+            document.getElementById('barOpacity').value = config.barOpacity || 100; document.getElementById('opacityVal').innerText = config.barOpacity || 100;
+            document.getElementById('scrollSpeed').value = config.scrollSpeed || 20; document.getElementById('speedVal').innerText = config.scrollSpeed || 20;
+
+            document.getElementById('audioVolume').value = config.audioVolume || 80; document.getElementById('volumeVal').innerText = config.audioVolume || 80;
+            document.getElementById('audioUnmuted').checked = !config.audioMuted;
+            setTimeout(() => { if(config.audioDeviceId) document.getElementById('audioDeviceId').value = config.audioDeviceId; }, 500);
+
+            messageList = config.messageList || []; renderMessageList();
+            document.getElementById('signageFolder').value = config.signageFolder;
+            document.getElementById('durationImage').value = config.durationImage || 15;
+            document.getElementById('sharedListPath').value = config.sharedListPath || '';
+            manualList = config.manualList || []; renderList();
+            // IBAN
+            ibanList = config.ibanList || []; renderIbanList();
+            document.getElementById('ibanShortcut').value = config.ibanShortcut || 'Ctrl+Shift+Q';
+            document.getElementById('cropShortcut').value = config.cropShortcut || 'Ctrl+Shift+Y';
+            toggleBarSettings();
+        });
+
+        document.getElementById('settingsForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const config = {
+                language: currentLang, // Kaydederken dili de kaydet
+                monitorId: parseInt(document.getElementById('monitorId').value),
+                orientation: document.getElementById('orientation').value,
+                autoStart: document.getElementById('autoStart').checked,
+                showSettingsOnLaunch: document.getElementById('showSettingsOnLaunch').checked,
+                preventMainScreen: document.getElementById('preventMainScreen').checked,
+                showInfoBar: document.getElementById('showInfoBar').checked,
+                CompanyName: document.getElementById('CompanyName').value,
+                barColor: document.getElementById('barColor').value,
+                barOpacity: parseInt(document.getElementById('barOpacity').value),
+                scrollSpeed: parseInt(document.getElementById('scrollSpeed').value),
+                audioVolume: parseInt(document.getElementById('audioVolume').value),
+                audioMuted: !document.getElementById('audioUnmuted').checked,
+                audioDeviceId: document.getElementById('audioDeviceId').value,
+                messageList: messageList,
+                signageFolder: document.getElementById('signageFolder').value,
+                durationImage: parseInt(document.getElementById('durationImage').value),
+                manualList: manualList,
+                sharedListPath: document.getElementById('sharedListPath').value,
+                ibanList: ibanList,
+                ibanShortcut: document.getElementById('ibanShortcut').value || 'Ctrl+Shift+Q',
+                cropShortcut: document.getElementById('cropShortcut').value || 'Ctrl+Shift+Y'
+            };
+            ipcRenderer.send('save-settings', config);
+        });
+    </script>
+</body>
+</html>

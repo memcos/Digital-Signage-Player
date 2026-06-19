@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>IBAN QR Ödeme</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: #050510;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e2e8f0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(102, 126, 234, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 110%, rgba(118, 75, 162, 0.12), transparent),
+                radial-gradient(ellipse 50% 30% at 10% 80%, rgba(6, 182, 212, 0.08), transparent);
+            animation: bg-shift 12s ease-in-out infinite alternate;
+        }
+
+        @keyframes bg-shift { 0% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        .particle {
+            position: fixed;
+            width: 4px; height: 4px;
+            background: rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            animation: drift 15s ease-in-out infinite;
+            pointer-events: none;
+        }
+        .particle:nth-child(1) { top: 20%; left: 10%; animation-delay: 0s; animation-duration: 12s; }
+        .particle:nth-child(2) { top: 60%; left: 85%; animation-delay: -3s; animation-duration: 18s; width: 6px; height: 6px; }
+        .particle:nth-child(3) { top: 80%; left: 30%; animation-delay: -7s; animation-duration: 14s; }
+        .particle:nth-child(4) { top: 15%; left: 70%; animation-delay: -5s; animation-duration: 16s; width: 3px; height: 3px; }
+        .particle:nth-child(5) { top: 45%; left: 50%; animation-delay: -2s; animation-duration: 20s; width: 5px; height: 5px; }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+            25% { transform: translate(40px, -60px) scale(1.2); opacity: 0.6; }
+            50% { transform: translate(-30px, 30px) scale(0.8); opacity: 0.4; }
+            75% { transform: translate(50px, 50px) scale(1.1); opacity: 0.5; }
+        }
+
+        .main-container {
+            position: relative; z-index: 10;
+            display: flex; flex-direction: column; align-items: center; gap: 32px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        .title-area { text-align: center; }
+
+        .title-area h1 {
+            font-size: 2rem; font-weight: 800;
+            background: linear-gradient(135deg, #e2e8f0 0%, #a5b4fc 50%, #c4b5fd 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        .title-area .subtitle {
+            font-size: 1rem; color: rgba(255,255,255,0.4); margin-top: 6px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        .title-area .subtitle .scan-icon {
+            width: 24px; height: 24px;
+            border: 2px solid rgba(102, 126, 234, 0.5); border-radius: 6px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; color: #667eea;
+            animation: pulse-border 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-border { 0%, 100% { border-color: rgba(102, 126, 234, 0.3); } 50% { border-color: rgba(102, 126, 234, 0.7); } }
+
+        .qr-card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 32px; padding: 48px;
+            position: relative; overflow: hidden;
+        }
+
+        .qr-card::before {
+            content: ''; position: absolute; top: -1px; left: 20%; right: 20%; height: 2px;
+            background: linear-gradient(90deg, transparent, #667eea, transparent);
+        }
+
+        .qr-wrapper {
+            background: white; border-radius: 20px; padding: 24px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); position: relative;
+        }
+
+        #qrCanvas { display: block; }
+
+        .qr-wrapper::before, .qr-wrapper::after {
+            content: ''; position: absolute; width: 24px; height: 24px; border: 3px solid #667eea;
+        }
+        .qr-wrapper::before { top: 8px; left: 8px; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
+        .qr-wrapper::after { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+
+        .payment-info { margin-top: 32px; display: flex; flex-direction: column; gap: 12px; }
+
+        .info-row {
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.04); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .info-row .info-icon {
+            width: 36px; height: 36px; background: rgba(102, 126, 234, 0.15);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            font-size: 0.9rem; color: #818cf8; flex-shrink: 0;
+        }
+
+        .info-row .info-content { flex: 1; }
+        .info-row .info-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); font-weight: 600; }
+        .info-row .info-value { font-size: 0.95rem; font-weight: 500; color: #e2e8f0; margin-top: 2px; }
+
+        .info-row.amount-row { background: rgba(102, 126, 234, 0.08); border-color: rgba(102, 126, 234, 0.2); }
+        .info-row.amount-row .info-value {
+            font-size: 1.8rem; font-weight: 800;
+            background: linear-gradient(135deg, #667eea, #a78bfa);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+
+        .close-btn {
+            position: fixed; top: 24px; right: 24px; width: 48px; height: 48px;
+            background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px; color: rgba(255,255,255,0.5); font-size: 1.2rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s; z-index: 100;
+        }
+        .close-btn:hover { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #ef4444; }
+
+        .iban-display {
+            text-align: center; font-family: 'Courier New', monospace;
+            font-size: 1.1rem; letter-spacing: 2px; color: rgba(255,255,255,0.3); padding: 12px;
+        }
+
+        .loading { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+        .loading .spinner {
+            width: 48px; height: 48px; border: 3px solid rgba(102, 126, 234, 0.2);
+            border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    <div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div><div class="particle"></div>
+
+    <button class="close-btn" onclick="closeQR()" title="Kapat (ESC)"><i class="fa fa-times"></i></button>
+
+    <div class="main-container" id="mainContainer">
+        <div class="loading" id="loadingState">
+            <div class="spinner"></div>
+            <p style="color: rgba(255,255,255,0.4);">QR kod oluşturuluyor...</p>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const QRCode = require('qrcode');
+        const crypto = require('crypto');
+
+        // ---- BANKA LİSTESİ (TCMB/FAST) ----
+        const BANKS = [
+            ["00100","0100","Adabank A.Ş."],["00046","0046","Akbank T.A.Ş."],["00143","0143","Aktif Yatırım Bankası A.Ş."],
+            ["00203","0203","Albaraka Türk Katılım Bankası A.Ş."],["00124","0124","Alternatifbank A.Ş."],
+            ["00135","0135","Anadolubank A.Ş."],["00091","0091","Arap Türk Bankası A.Ş."],["00094","0094","Bank Mellat"],
+            ["00129","0129","Bank of America Yatırım Bank A.Ş."],["00149","0149","Bank of China Turkey A.Ş."],
+            ["00142","0142","BankPozitif Kredi ve Kalkınma Bankası A.Ş."],["00029","0029","Birleşik Fon Bankası A.Ş."],
+            ["00125","0125","Burgan Bank A.Ş."],["00092","0092","Citibank A.Ş."],["00134","0134","Denizbank A.Ş."],
+            ["00115","0115","Deutsche Bank A.Ş."],["00138","0138","Diler Yatırım Bankası A.Ş."],
+            ["00103","0103","Fibabanka A.Ş."],["00150","0150","Golden Global Yatırım Bankası A.Ş."],
+            ["00139","0139","GSD Yatırım Bankası A.Ş."],["00097","0097","Habib Bank Limited"],
+            ["00123","0123","HSBC Bank A.Ş."],["00109","0109","ICBC Turkey Bank A.Ş."],["00099","0099","ING Bank A.Ş."],
+            ["00148","0148","Intesa Sanpaolo S.p.A."],["00004","0004","İller Bankası A.Ş."],
+            ["00132","0132","İstanbul Takas ve Saklama Bankası A.Ş."],["00098","0098","JPMorgan Chase Bank N.A."],
+            ["00205","0205","Kuveyt Türk Katılım Bankası A.Ş."],["00147","0147","MUFG Bank Turkey A.Ş."],
+            ["00141","0141","Nurol Yatırım Bankası A.Ş."],["00146","0146","Odea Bank A.Ş."],
+            ["00116","0116","Pasha Yatırım Bankası A.Ş."],["00111","0111","QNB Finansbank A.Ş."],
+            ["00137","0137","Rabobank A.Ş."],["00122","0122","Société Générale (SA)"],
+            ["00121","0121","Standard Chartered Yatırım Bankası Türk A.Ş."],["00096","0096","Turkish Bank A.Ş."],
+            ["00108","0108","Turkland Bank A.Ş."],["00032","0032","Türk Ekonomi Bankası A.Ş."],
+            ["00016","0016","Türk Eximbank"],["00010","0010","Türkiye Cumhuriyeti Ziraat Bankası A.Ş."],
+            ["00211","0211","Türkiye Emlak Katılım Bankası A.Ş."],["00206","0206","Türkiye Finans Katılım Bankası A.Ş."],
+            ["00062","0062","Türkiye Garanti Bankası A.Ş."],["00012","0012","Türkiye Halk Bankası A.Ş."],
+            ["00064","0064","Türkiye İş Bankası A.Ş."],["00017","0017","Türkiye Kalkınma ve Yatırım Bankası A.Ş."],
+            ["00014","0014","Türkiye Sınai Kalkınma Bankası A.Ş."],["00015","0015","Türkiye Vakıflar Bankası T.A.O."],
+            ["00020","0020","Vakıf Katılım Bankası A.Ş."],["00067","0067","Yapı ve Kredi Bankası A.Ş."],
+            ["00209","0209","Ziraat Katılım Bankası A.Ş."],["00059","0059","Şekerbank T.A.Ş."]
+        ];
+
+        const bankMap = new Map();
+        for (const [code5, code4, name] of BANKS) {
+            bankMap.set(code5, name);
+            bankMap.set(code4, name);
+        }
+
+        // ---- IBAN DOĞRULAMA ----
+        function normalizeIban(iban) {
+            return String(iban || '').replace(/\s+/g, '').toUpperCase();
+        }
+
+        function ibanMod97Valid(iban) {
+            iban = normalizeIban(iban);
+            if (!/^TR\d{24}$/.test(iban)) return false;
+            const rearranged = iban.slice(4) + iban.slice(0, 4);
+            let remainder = 0;
+            for (const ch of rearranged) {
+                const chunk = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch;
+                for (const digit of chunk) {
+                    remainder = (remainder * 10 + Number(digit)) % 97;
+                }
+            }
+            return remainder === 1;
+        }
+
+        function validateIban(iban) {
+            iban = normalizeIban(iban);
+            if (!iban.startsWith('TR')) throw new Error('IBAN TR ile başlamalıdır.');
+            if (iban.length !== 26) throw new Error('TR IBAN 26 karakter olmalıdır.');
+            if (!/^TR\d{24}$/.test(iban)) throw new Error('IBAN biçimi geçersiz.');
+            if (!ibanMod97Valid(iban)) throw new Error('IBAN kontrol hanesi geçersiz.');
+            return iban;
+        }
+
+        function qrBankCodeFromIban(iban) {
+            iban = validateIban(iban);
+            return String(Number(iban.slice(4, 9))).padStart(4, '0');
+        }
+
+        // ---- FAST TR KAREKOD TLV BUILDER ----
+        function charLen(value) {
+            return Array.from(String(value)).length;
+        }
+
+        function createTLV(tag, value) {
+            value = String(value);
+            const len = charLen(value);
+            if (len > 99) throw new Error(`${tag} alanı 99 karakterden uzun.`);
+            return `${tag}${String(len).padStart(2, '0')}${value}`;
+        }
+
+        function crc16CcittFalse(text) {
+            const bytes = new TextEncoder().encode(text);
+            let crc = 0xFFFF;
+            for (const b of bytes) {
+                crc ^= b << 8;
+                for (let i = 0; i < 8; i++) {
+                    crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+                }
+            }
+            return crc;
+        }
+
+        function generateTimestamp() {
+            const d = new Date();
+            return d.getFullYear().toString().slice(-2) +
+                   (d.getMonth() + 1).toString().padStart(2, '0') +
+                   d.getDate().toString().padStart(2, '0') +
+                   d.getHours().toString().padStart(2, '0') +
+                   d.getMinutes().toString().padStart(2, '0') +
+                   d.getSeconds().toString().padStart(2, '0');
+        }
+
+        function newReference() {
+            const arr = new Uint8Array(16);
+            crypto.getRandomValues(arr);
+            return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+        }
+
+        function generateFASTQRData(iban, holderName, amount) {
+            iban = validateIban(iban);
+            const bankCode = qrBankCodeFromIban(iban);
+
+            // Tag 61: Alacaklı bilgileri
+            const accountArea = createTLV('01', iban) +
+                                createTLV('07', holderName) +
+                                createTLV('10', '03');
+
+            let body = '';
+
+            // Tag 75: Format version
+            body += createTLV('75', '10');
+
+            // Tag 01: QR Type (11 = static/reusable)
+            body += createTLV('01', '11');
+
+            // Tag 02: Banka kodu (IBAN'dan çıkarılır)
+            body += createTLV('02', bankCode);
+
+            // Tag 06: Zaman damgası (YYMMDDHHMMSS)
+            body += createTLV('06', generateTimestamp());
+
+            // Tag 54: Tutar (kuruş cinsinden 12 hane, opsiyonel)
+            if (amount !== null && amount !== undefined && amount !== '') {
+                const amountFloat = parseFloat(amount);
+                if (amountFloat > 0) {
+                    const cents = Math.round((amountFloat + Number.EPSILON) * 100);
+                    body += createTLV('54', String(cents).padStart(12, '0'));
+                }
+            }
+
+            // Tag 61: Alacaklı bilgileri
+            body += createTLV('61', accountArea);
+
+            // Tag 20: Referans (32 karakter random hex)
+            body += createTLV('20', newReference());
+
+            // Tag 63: CRC16-CCITT (son tag)
+            const crcInput = body + '6304';
+            const crc = crc16CcittFalse(crcInput).toString(16).toUpperCase().padStart(4, '0');
+            return body + '6304' + crc;
+        }
+
+        // ---- QR EKRANI ----
+        function renderQRDisplay(data) {
+            const container = document.getElementById('mainContainer');
+            const { iban, holderName, bankName, amount, qrPayload } = data;
+
+            let infoHTML = '';
+
+            infoHTML += `
+                <div class="info-row">
+                    <div class="info-icon"><i class="fa fa-university"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">Banka</div>
+                        <div class="info-value">${bankName}</div>
+                    </div>
+                </div>
+            `;
+
+            infoHTML += `
+                <div class="info-row">
+                    <div class="info-icon"><i class="fa fa-user"></i></div>
+                    <div class="info-content">
+                        <div class="info-label">Hesap Sahibi</div>
+                        <div class="info-value">${holderName}</div>
+                    </div>
+                </div>
+            `;
+
+            if (amount && parseFloat(amount) > 0) {
+                const formattedAmount = parseFloat(amount).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                infoHTML += `
+                    <div class="info-row amount-row">
+                        <div class="info-icon"><i class="fa fa-turkish-lira-sign"></i></div>
+                        <div class="info-content">
+                            <div class="info-label">Tutar</div>
+                            <div class="info-value">${formattedAmount} ₺</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const formattedIBAN = iban.replace(/(.{4})/g, '$1 ').trim();
+
+            container.innerHTML = `
+                <div class="title-area">
+                    <h1>Ödeme yapmak için QR kodu okutun</h1>
+                    <div class="subtitle">
+                        <span class="scan-icon"><i class="fa fa-camera"></i></span>
+                        Banka uygulamanızla tarayın
+                    </div>
+                </div>
+                <div class="qr-card">
+                    <div class="qr-wrapper">
+                        <canvas id="qrCanvas"></canvas>
+                    </div>
+                    <div class="payment-info">${infoHTML}</div>
+                </div>
+                <div class="iban-display">${formattedIBAN}</div>
+            `;
+
+            const canvas = document.getElementById('qrCanvas');
+            QRCode.toCanvas(canvas, qrPayload, {
+                width: 320, margin: 2,
+                color: { dark: '#1a1a2e', light: '#ffffff' },
+                errorCorrectionLevel: 'M'
+            }, function(error) {
+                if (error) console.error('QR Error:', error);
+            });
+        }
+
+        // IPC: QR verisini al
+        ipcRenderer.on('qr-data', (event, data) => {
+            const cleanIban = normalizeIban(data.iban);
+
+            try {
+                const qrPayload = generateFASTQRData(cleanIban, data.holderName, data.amount);
+                console.log('TR Karekod Payload:', qrPayload);
+                console.log('Banka Kodu:', qrBankCodeFromIban(cleanIban));
+                renderQRDisplay({ ...data, iban: cleanIban, qrPayload });
+            } catch (err) {
+                console.error('QR Oluşturma Hatası:', err.message);
+                document.getElementById('mainContainer').innerHTML = `
+                    <div style="text-align:center;color:#ef4444;">
+                        <i class="fa fa-exclamation-triangle" style="font-size:3rem;margin-bottom:16px;"></i>
+                        <h2>QR Oluşturulamadı</h2>
+                        <p style="color:rgba(255,255,255,0.5);margin-top:8px;">${err.message}</p>
+                    </div>
+                `;
+            }
+        });
+
+        function closeQR() {
+            ipcRenderer.send('close-iban-qr');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeQR();
+        });
+    </script>
+</body>
+</html>
